@@ -1,7 +1,7 @@
 #include <Adafruit_CC3000.h>
 #include <ccspi.h>
 #include <SPI.h>
-#include <plotly_streaming_cc3000.h>
+#include "plotly_streaming_cc3000wdt.h"
 #include <avr/wdt.h>
 
 #define WLAN_SSID       "kaqmak"
