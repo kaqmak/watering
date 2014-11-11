@@ -9,6 +9,7 @@
 #define WLAN_SECURITY   WLAN_SEC_WPA2
 
 int inPin = 2;
+int powerPin = 7;
 // Sign up to plotly here: https://plot.ly
 // View your API key and streamtokens here: https://plot.ly/settings
 #define nTraces 2
@@ -85,6 +86,8 @@ void setup() {
     ; // wait for serial port to connect. Needed for Leonardo only
   }
   pinMode(inPin, INPUT);      // sets the digital pin  as input
+  pinMode(powerPin, OUTPUT);
+  digitalWrite(powerPin, LOW);
   wifi_connect();
 
   graph.log_level = 0;
@@ -93,7 +96,7 @@ void setup() {
   graph.timezone = "Europe/Copenhagen";
   graph.maxpoints = 5000;
   bool success;
-  delay(65000);
+//  delay(65000);
   success = graph.init();
   //  if(!success){
   //    while(true){
@@ -127,8 +130,11 @@ void loop() {
     }    
   }
   wdt_reset();
+  digitalWrite(powerPin, HIGH);
+  delay(10);
   float h = analogRead(0);
   int hdig = digitalRead(inPin);
+  digitalWrite(powerPin, LOW);
   // check if returns are valid, if they are NaN (not a number) then something went wrong!
   if (isnan(h)) {
     Serial.println("\nFailed to read from Moisture dims");
