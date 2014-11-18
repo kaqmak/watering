@@ -8,6 +8,8 @@
 
 #define WLAN_SSID       "kaqmak"
 #define WLAN_PASS       "Saibaba8"
+//#define WLAN_SSID       "DyrehavenWiFi"
+//#define WLAN_PASS       "dyrehaven34"
 #define WLAN_SECURITY   WLAN_SEC_WPA2
 
 #define LOGGING_FREQ_SECONDS   60       // Seconds to wait before a new sensor reading is logged.
@@ -17,7 +19,7 @@
                                                          // watchdog timer configuration.
 
 
-#define INPIN   2
+#define INPIN 2
 #define POWERPIN 7
 int sleepIterations = 0;
 volatile bool watchdogActivated = false;
@@ -59,6 +61,9 @@ void sleep()
 
 boolean wifi_connect(){
   /* Initialise the module */
+  Serial.println(F("Turning on CC3000."));
+  //wlan_start(0);
+
   Serial.println(F("\n... Initializing..."));
   if (!graph.cc3000.begin())
   {
@@ -87,12 +92,12 @@ boolean wifi_connect(){
   int attempts = 0;
   while (!graph.cc3000.checkDHCP())
   {
-    if (attempts > 50) {
+    if (attempts > 20) {
       Serial.println(F("DHCP didn't finish!"));
       return false;
     }
     attempts += 1;
-    delay(100);
+    delay(1000);
   }
   // Return success, the CC3000 is enabled and connected to the network.
   return true;
@@ -146,17 +151,17 @@ void logSensorReading() {
   // Note that if you're sending a lot of data you
   // might need to tweak the delay here so the CC3000 has
   // time to finish sending all the data before shutdown.
-  delay(100);
+  delay(400);
   
   // Close the connection to the server.
   graph.closeStream();
 }
 
 void setup() {
-  //wdt_reset();
-  //wdt_disable();
+  wdt_reset();
+  wdt_disable();
   // Open serial communications and wait for port to open:
-  Serial.begin(9600);
+  Serial.begin(115200);
 
   pinMode(INPIN, INPUT);      // sets the digital pin  as input
   pinMode(POWERPIN, OUTPUT);
@@ -228,6 +233,7 @@ void loop() {
       
       // Reset the number of sleep iterations.
       sleepIterations = 0;
+      wlan_start(0);
       // Log the sensor data (waking the CC3000, etc. as needed)
       if (wifi_connect()) {
         Serial.println(F("in Loop: wifi_connected. Trying logSensorReading"));
