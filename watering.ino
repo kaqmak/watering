@@ -6,12 +6,13 @@
 #include <avr/sleep.h>
 #include <avr/power.h>
 
-#define WLAN_SSID       "kaqmak"
-#define WLAN_PASS       "Saibaba8"
-//#define WLAN_SSID       "DyrehavenWiFi"
-//#define WLAN_PASS       "dyrehaven34"
+//#define WLAN_SSID       "kaqmak"
+//#define WLAN_PASS       "Saibaba8"
+#define WLAN_SSID       "tju"
+#define WLAN_PASS       "rasmusogelsebeth"
 #define WLAN_SECURITY   WLAN_SEC_WPA2
 
+//#define LOGGING_FREQ_SECONDS   3600       // Seconds to wait before a new sensor reading is logged.
 #define LOGGING_FREQ_SECONDS   60       // Seconds to wait before a new sensor reading is logged.
 #define MAX_SLEEP_ITERATIONS   LOGGING_FREQ_SECONDS / 8  // Number of times to sleep (for 8 seconds) before
                                                          // a sensor reading is taken and sent to the server.
@@ -169,8 +170,8 @@ void setup() {
   wifi_connect();
 
   graph.log_level = 0;
-  graph.fileopt="overwrite"; // See the "Usage" section in https://github.com/plotly/arduino-api for details
-  //graph.fileopt = "extend"; // Remove this if you want the graph to be overwritten
+  //graph.fileopt="overwrite"; // See the "Usage" section in https://github.com/plotly/arduino-api for details
+  graph.fileopt = "extend"; // Remove this if you want the graph to be overwritten
   graph.timezone = "Europe/Copenhagen";
   graph.maxpoints = 5000;
   bool success;
