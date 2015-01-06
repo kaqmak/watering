@@ -25,9 +25,10 @@
 #define POWERPIN 7
 int sleepIterations = 0;
 volatile bool watchdogActivated = false;
-#define nTraces 2
+#define nTraces 4
 
-char *tokens[nTraces] = {"5x19el5hwa","d3lyurclnz"};
+char *tokens[nTraces] = {"5x19el5hwa","d3lyurclnz","X","X"};
+//char *tokens[nTraces] = {"x","x"}; //Skovbasses tokens
 // arguments: username, api key, streaming token, filename
 plotly graph = plotly("kaqmak", "23rkqd46jq", tokens, "testMoisture", nTraces);
 
@@ -148,27 +149,34 @@ void logSensorReading() {
   current_mA = ina219.getCurrent_mA();
   loadvoltage = busvoltage + (shuntvoltage / 1000);
   
+
+
+
+  
+
+}
+// fetch EEPROM and upload
+void uploadSensorReading(){
   // Connect to the server and send the reading.
+
+  // Hent EEPROM data
+
+  //Upload
   Serial.println(F("Sending measurements "));
-  graph.reconnectStream(); 
-  graph.plot(millis(), h, tokens[0]);
+  graph.reconnectStream();
+  //loop 
+  graph.plot(millis(), h, tokens[0]);//change names
   graph.plot(millis(), hdig, tokens[1]);
   graph.plot(millis(), current_mA, tokens[2]);
   graph.plot(millis(), loadvoltage, tokens[3]);
 
-
-  
-  // Note that if you're sending a lot of data you
+    // Note that if you're sending a lot of data you
   // might need to tweak the delay here so the CC3000 has
   // time to finish sending all the data before shutdown.
   delay(400);
   
   // Close the connection to the server.
   graph.closeStream();
-}
-// fetch EEPROM and upload
-void uploadSensorReading(){
-
 }
 
 void setup() {
