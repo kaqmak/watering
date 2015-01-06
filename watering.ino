@@ -130,7 +130,7 @@ void shutdownWiFi() {
   Serial.println(F("CC3000 shut down.")); 
 }
 
-// Take a sensor reading and send it to the server.
+// Take a sensor reading and store in EEPROM
 void logSensorReading() {
   // Take a sensor reading
   digitalWrite(POWERPIN, HIGH);
@@ -153,6 +153,10 @@ void logSensorReading() {
   graph.reconnectStream(); 
   graph.plot(millis(), h, tokens[0]);
   graph.plot(millis(), hdig, tokens[1]);
+  graph.plot(millis(), current_mA, tokens[2]);
+  graph.plot(millis(), loadvoltage, tokens[3]);
+
+
   
   // Note that if you're sending a lot of data you
   // might need to tweak the delay here so the CC3000 has
@@ -161,6 +165,10 @@ void logSensorReading() {
   
   // Close the connection to the server.
   graph.closeStream();
+}
+// fetch EEPROM and upload
+void uploadSensorReading(){
+
 }
 
 void setup() {
@@ -224,8 +232,6 @@ void setup() {
   delay(100);
 }
 
-//unsigned long x;
-//int y;
 
 void loop() {
   Serial.println(F("inside loop()"));
