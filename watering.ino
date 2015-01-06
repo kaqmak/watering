@@ -5,15 +5,16 @@
 #include <avr/wdt.h>
 #include <avr/sleep.h>
 #include <avr/power.h>
+#include <Adafruit_INA219.h>
+#include <Wire.h>
 
-//#define WLAN_SSID       "kaqmak"
-//#define WLAN_PASS       "Saibaba8"
-#define WLAN_SSID       "tju"
-#define WLAN_PASS       "rasmusogelsebeth"
+#define WLAN_SSID       "kaqmak"
+#define WLAN_PASS       "Saibaba8"
+//#define WLAN_SSID       "DyrehavenWiFi"
+//#define WLAN_PASS       "dyrehaven34"
 #define WLAN_SECURITY   WLAN_SEC_WPA2
 
-//#define LOGGING_FREQ_SECONDS   3600       // Seconds to wait before a new sensor reading is logged.
-#define LOGGING_FREQ_SECONDS   60       // Seconds to wait before a new sensor reading is logged.
+#define LOGGING_FREQ_SECONDS   3600       // Seconds to wait before a new sensor reading is logged.
 #define MAX_SLEEP_ITERATIONS   LOGGING_FREQ_SECONDS / 8  // Number of times to sleep (for 8 seconds) before
                                                          // a sensor reading is taken and sent to the server.
                                                          // Don't change this unless you also change the 
@@ -26,8 +27,7 @@ int sleepIterations = 0;
 volatile bool watchdogActivated = false;
 #define nTraces 2
 
-char *tokens[nTraces] = {
-  "5x19el5hwa","d3lyurclnz"};
+char *tokens[nTraces] = {"5x19el5hwa","d3lyurclnz"};
 // arguments: username, api key, streaming token, filename
 plotly graph = plotly("kaqmak", "23rkqd46jq", tokens, "testMoisture", nTraces);
 
@@ -138,10 +138,15 @@ void logSensorReading() {
   int h = analogRead(0);
   int hdig = digitalRead(INPIN);
   digitalWrite(POWERPIN, LOW);
-  Serial.print("Humidity: "); 
-  Serial.println(h);
-  Serial.print("Digital: "); 
-  Serial.println(hdig);
+  //Serial.print("Humidity: "); 
+  //Serial.println(h);
+  //Serial.print("Digital: "); 
+  //Serial.println(hdig);
+
+  shuntvoltage = ina219.getShuntVoltage_mV();
+  busvoltage = ina219.getBusVoltage_V();
+  current_mA = ina219.getCurrent_mA();
+  loadvoltage = busvoltage + (shuntvoltage / 1000);
   
   // Connect to the server and send the reading.
   Serial.println(F("Sending measurements "));
@@ -167,8 +172,14 @@ void setup() {
   pinMode(INPIN, INPUT);      // sets the digital pin  as input
   pinMode(POWERPIN, OUTPUT);
   digitalWrite(POWERPIN, LOW);
-  wifi_connect();
 
+  //currentsensor
+  float shuntvoltage = 0;
+  float busvoltage = 0;
+  float current_mA = 0;
+  float loadvoltage = 0;
+  
+  wifi_connect();
   graph.log_level = 0;
   //graph.fileopt="overwrite"; // See the "Usage" section in https://github.com/plotly/arduino-api for details
   graph.fileopt = "extend"; // Remove this if you want the graph to be overwritten
@@ -251,5 +262,4 @@ void loop() {
   // Go to sleep!
   sleep();
 }
-
 
