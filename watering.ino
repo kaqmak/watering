@@ -8,19 +8,23 @@
 #include <Adafruit_INA219.h>
 #include <Wire.h>
 #include <EEPROM.h>
+#include "EEPROMAnything.h"
 
 #define WLAN_SSID       "kaqmak"
 #define WLAN_PASS       "Saibaba8"
 //#define WLAN_SSID       "DyrehavenWiFi"
 //#define WLAN_PASS       "dyrehaven34"
+#define WLAN_SSID       "Fermentoren"
+#define WLAN_PASS       "halmtorvet29c"
 #define WLAN_SECURITY   WLAN_SEC_WPA2
 
-#define LOGGING_FREQ_SECONDS   3600       // Seconds to wait before a new sensor reading is logged.
+//#define LOGGING_FREQ_SECONDS   3600       // Seconds to wait before a new sensor reading is logged.
+#define LOGGING_FREQ_SECONDS   32       // testing
 #define MAX_SLEEP_ITERATIONS   LOGGING_FREQ_SECONDS / 8  // Number of times to sleep (for 8 seconds) before
                                                          // a sensor reading is taken and sent to the server.
                                                          // Don't change this unless you also change the 
                                                          // watchdog timer configuration.
-
+#define MEASUREMENTS_BEFORE_UPLOAD 2
 
 #define INPIN 2
 #define POWERPIN 7
@@ -28,10 +32,23 @@ int sleepIterations = 0;
 volatile bool watchdogActivated = false;
 #define nTraces 4
 
-char *tokens[nTraces] = {"5x19el5hwa","d3lyurclnz","X","X"};
+
+struct measurementSet
+  {
+    byte h: 8;
+    unsigned long time: 32;
+    int current_mA: 12;
+    int loadvoltage: 12;
+  } dataParams;
+
+
+//EEPROM params
+int measCount = 0;
+
+char *tokens[nTraces] = {"s1swb3mjje","sb9xc012to","q1jyh0xoy7"};
 //char *tokens[nTraces] = {"x","x"}; //Skovbasses tokens
 // arguments: username, api key, streaming token, filename
-plotly graph = plotly("kaqmak", "23rkqd46jq", tokens, "testMoisture", nTraces);
+plotly graph = plotly("kaqmak", "23rkqd46jq", tokens, "MoistureAndCunt", nTraces);
 
 // Define watchdog timer interrupt.
 ISR(WDT_vect)
@@ -137,41 +154,44 @@ void logSensorReading() {
   // Take a sensor reading
   digitalWrite(POWERPIN, HIGH);//turn sensor on
   delay(10);
-  byte h = analogRead(0);//decrease resolution to 1 byte
+  dataParams.h = analogRead(0);//decrease resolution to 1 byte
   digitalWrite(POWERPIN, LOW);//turn sensor off
-
+/* jeg vil med
   shuntvoltage = ina219.getShuntVoltage_mV();
   busvoltage = ina219.getBusVoltage_V();
-  current_mA = ina219.getCurrent_mA();
-  loadvoltage = busvoltage + (shuntvoltage / 1000);
+  dataParams.current_mA = ina219.getCurrent_mA();
+  dataParams.loadvoltage = busvoltage + (shuntvoltage / 1000);
+  dataParams.time = millis();
+*/
+  dataParams.current_mA = analogRead(1);
+  dataParams.loadvoltage = analogRead(2);
+  dataParams.time = millis();
 
-  for(int j=0; j<1024; j++){//EEPROM has 1024 bytes
-    for(int i=0; i<12; i++){//write current_mA to EEPROM
-      bitread(current_mA>>20,i)
-    }
-  }
-
-
+  EEPROM_writeAnything(measCount++,dataParams);
 }
+
 // fetch EEPROM and upload
 void uploadSensorReading(){
   // Connect to the server and send the reading.
 
-  // Hent EEPROM data
-
-  //Upload
+ //Upload
   Serial.println(F("Sending measurements "));
   graph.reconnectStream();
-  //loop 
-  graph.plot(millis(), h, tokens[0]);//change names
-  graph.plot(millis(), hdig, tokens[1]);
-  graph.plot(millis(), current_mA, tokens[2]);
-  graph.plot(millis(), loadvoltage, tokens[3]);
 
-    // Note that if you're sending a lot of data you
-  // might need to tweak the delay here so the CC3000 has
-  // time to finish sending all the data before shutdown.
-  delay(400);
+  // Hent EEPROM data
+  for(int i=0; i<measCount; i++){
+      EEPROM_readAnything(i*sizeof(measurementSet),dataParams);
+      graph.plot(dataParams.time, dataParams.h, tokens[0]);//change names
+      graph.plot(dataParams.time, dataParams.current_mA, tokens[1]);
+      graph.plot(dataParams.time, dataParams.loadvoltage, tokens[2]);
+      // Note that if you're sending a lot of data you
+      // might need to tweak the delay here so the CC3000 has
+      // time to finish sending all the data before shutdown.
+      delay(400);
+  }
+  measCount = 0;
+
+
 
   // Close the connection to the server.
   graph.closeStream();
@@ -250,23 +270,32 @@ void loop() {
     // reading once the max number of iterations has been hit.
     sleepIterations += 1;
     Serial.println(sleepIterations);
-    if (sleepIterations >= MAX_SLEEP_ITERATIONS) {
+    if (measCount >= MAX_SLEEP_ITERATIONS) {
       Serial.println(F("sleepIteration above MAX_SLEEP"));
       Serial.flush();
       delay(10);
       
       // Reset the number of sleep iterations.
       sleepIterations = 0;
+      // Log the sensor data (waking the CC3000, etc. as needed)
+    
+      logSensorReading();
+      Serial.println(F("after logSensorReading"));
+      Serial.flush();
+    }
+    if(measCount >= MEASUREMENTS_BEFORE_UPLOAD)
+    {
       wlan_start(0);
       // Log the sensor data (waking the CC3000, etc. as needed)
       if (wifi_connect()) {
-        Serial.println(F("in Loop: wifi_connected. Trying logSensorReading"));
+        Serial.println(F("in Loop: wifi_connected. Trying uploadSensorReading"));
         Serial.flush();
-        logSensorReading();
-        Serial.println(F("after logSensorReading"));
+        uploadSensorReading();
+        Serial.println(F("after uploadSensorReading"));
         Serial.flush();
       }
       shutdownWiFi();
+
     }
   }
   delay(100);
