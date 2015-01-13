@@ -7,6 +7,7 @@
 #include <avr/power.h>
 #include <Adafruit_INA219.h>
 #include <Wire.h>
+#include <EEPROM.h>
 
 #define WLAN_SSID       "kaqmak"
 #define WLAN_PASS       "Saibaba8"
@@ -134,25 +135,22 @@ void shutdownWiFi() {
 // Take a sensor reading and store in EEPROM
 void logSensorReading() {
   // Take a sensor reading
-  digitalWrite(POWERPIN, HIGH);
+  digitalWrite(POWERPIN, HIGH);//turn sensor on
   delay(10);
-  int h = analogRead(0);
-  int hdig = digitalRead(INPIN);
-  digitalWrite(POWERPIN, LOW);
-  //Serial.print("Humidity: "); 
-  //Serial.println(h);
-  //Serial.print("Digital: "); 
-  //Serial.println(hdig);
+  byte h = analogRead(0);//decrease resolution to 1 byte
+  digitalWrite(POWERPIN, LOW);//turn sensor off
 
   shuntvoltage = ina219.getShuntVoltage_mV();
   busvoltage = ina219.getBusVoltage_V();
   current_mA = ina219.getCurrent_mA();
   loadvoltage = busvoltage + (shuntvoltage / 1000);
-  
 
+  for(int j=0; j<1024; j++){//EEPROM has 1024 bytes
+    for(int i=0; i<12; i++){//write current_mA to EEPROM
+      bitread(current_mA>>20,i)
+    }
+  }
 
-
-  
 
 }
 // fetch EEPROM and upload
@@ -174,7 +172,7 @@ void uploadSensorReading(){
   // might need to tweak the delay here so the CC3000 has
   // time to finish sending all the data before shutdown.
   delay(400);
-  
+
   // Close the connection to the server.
   graph.closeStream();
 }
@@ -194,7 +192,7 @@ void setup() {
   float busvoltage = 0;
   float current_mA = 0;
   float loadvoltage = 0;
-  
+
   wifi_connect();
   graph.log_level = 0;
   //graph.fileopt="overwrite"; // See the "Usage" section in https://github.com/plotly/arduino-api for details
