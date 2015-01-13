@@ -30,7 +30,7 @@
 #define POWERPIN 7
 int sleepIterations = 0;
 volatile bool watchdogActivated = false;
-#define nTraces 4
+#define nTraces 3
 
 
 struct measurementSet
@@ -270,7 +270,7 @@ void loop() {
     // reading once the max number of iterations has been hit.
     sleepIterations += 1;
     Serial.println(sleepIterations);
-    if (measCount >= MAX_SLEEP_ITERATIONS) {
+    if (sleepIterations >= MAX_SLEEP_ITERATIONS) {
       Serial.println(F("sleepIteration above MAX_SLEEP"));
       Serial.flush();
       delay(10);
