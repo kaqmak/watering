@@ -14,8 +14,8 @@
 #define WLAN_PASS       "Saibaba8"
 //#define WLAN_SSID       "DyrehavenWiFi"
 //#define WLAN_PASS       "dyrehaven34"
-#define WLAN_SSID       "Fermentoren"
-#define WLAN_PASS       "halmtorvet29c"
+//#define WLAN_SSID       "Fermentoren"
+//#define WLAN_PASS       "halmtorvet29c"
 #define WLAN_SECURITY   WLAN_SEC_WPA2
 
 //#define LOGGING_FREQ_SECONDS   3600       // Seconds to wait before a new sensor reading is logged.
@@ -35,10 +35,10 @@ volatile bool watchdogActivated = false;
 
 struct measurementSet
   {
-    byte h: 8;
-    unsigned long time: 32;
-    int current_mA: 12;
-    int loadvoltage: 12;
+    byte h;
+    unsigned long time;
+    float current_mA;
+    float loadvoltage;
   } dataParams;
 
 
@@ -73,7 +73,7 @@ void sleep()
 
   // CPU is now asleep and program execution completely halts!
   // Once awake, execution will resume at this point.
-  
+
   // When awake, disable sleep mode and turn on all devices.
   sleep_disable();
   power_all_enable();
@@ -146,8 +146,17 @@ void shutdownWiFi() {
    wlan_stop();
   //graph.cc3000.stop();
   
-  Serial.println(F("CC3000 shut down.")); 
+  Serial.println(F("CC3000 shut down."));
 }
+
+/*void print_measurementSet() {
+  Serial.print("Time: ");
+  Serial.println(dataParams.time);
+  Serial.print("current_mA: ");
+  Serial.println(dataParams.current_mA);
+  Serial.print("loadvoltage: ");
+  Serial.println(dataParams.loadvoltage);
+}*/
 
 // Take a sensor reading and store in EEPROM
 void logSensorReading() {
@@ -166,9 +175,11 @@ void logSensorReading() {
   dataParams.current_mA = analogRead(1);
   dataParams.loadvoltage = analogRead(2);
   dataParams.time = millis();
-
+  //Serial.println("Saving the following to EEPROM");
+  //print_measurementSet();
   EEPROM_writeAnything(measCount++,dataParams);
 }
+
 
 // fetch EEPROM and upload
 void uploadSensorReading(){
@@ -181,6 +192,8 @@ void uploadSensorReading(){
   // Hent EEPROM data
   for(int i=0; i<measCount; i++){
       EEPROM_readAnything(i*sizeof(measurementSet),dataParams);
+      //Serial.println("Fethed this from EEPROM");
+      //print_measurementSet();
       graph.plot(dataParams.time, dataParams.h, tokens[0]);//change names
       graph.plot(dataParams.time, dataParams.current_mA, tokens[1]);
       graph.plot(dataParams.time, dataParams.loadvoltage, tokens[2]);
@@ -190,8 +203,6 @@ void uploadSensorReading(){
       delay(400);
   }
   measCount = 0;
-
-
 
   // Close the connection to the server.
   graph.closeStream();
@@ -210,15 +221,16 @@ void setup() {
   //currentsensor
   float shuntvoltage = 0;
   float busvoltage = 0;
-  float current_mA = 0;
-  float loadvoltage = 0;
+  //float current_mA = 0;
+  //float loadvoltage = 0;
 
   wifi_connect();
   graph.log_level = 0;
-  //graph.fileopt="overwrite"; // See the "Usage" section in https://github.com/plotly/arduino-api for details
-  graph.fileopt = "extend"; // Remove this if you want the graph to be overwritten
+  graph.fileopt="overwrite"; // See the "Usage" section in https://github.com/plotly/arduino-api for details
+  //graph.fileopt = "extend"; // Remove this if you want the graph to be overwritten
   graph.timezone = "Europe/Copenhagen";
   graph.maxpoints = 5000;
+  plotly.timestamp = true; // tell plotly that you're stamping your data with a millisecond counter and that you want plotly to convert it into a date-formatted graph
   bool success;
 //  delay(65000);
   success = graph.init();
@@ -238,23 +250,23 @@ void setup() {
  // This next section of code is timing critical, so interrupts are disabled.
   // See more details of how to change the watchdog in the ATmega328P datasheet
   // around page 50, Watchdog Timer.
-  noInterrupts(); 
+  noInterrupts();
  // Set the watchdog reset bit in the MCU status register to 0.
   MCUSR &= ~(1<<WDRF);
-  
+
   // Set WDCE and WDE bits in the watchdog control register.
   WDTCSR |= (1<<WDCE) | (1<<WDE);
 
   // Set watchdog clock prescaler bits to a value of 8 seconds.
   WDTCSR = (1<<WDP0) | (1<<WDP3);
-  
+
   // Enable watchdog as interrupt only (no reset).
   WDTCSR |= (1<<WDIE);
-  
+
   // Enable interrupts again.
   interrupts();
-  
-  Serial.println(F("Setup complete.")); 
+
+  Serial.println(F("Setup complete."));
   delay(100);
 }
 
@@ -274,11 +286,11 @@ void loop() {
       Serial.println(F("sleepIteration above MAX_SLEEP"));
       Serial.flush();
       delay(10);
-      
+
       // Reset the number of sleep iterations.
       sleepIterations = 0;
       // Log the sensor data (waking the CC3000, etc. as needed)
-    
+
       logSensorReading();
       Serial.println(F("after logSensorReading"));
       Serial.flush();
