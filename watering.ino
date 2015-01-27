@@ -163,7 +163,7 @@ void logSensorReading() {
   // Take a sensor reading
   digitalWrite(POWERPIN, HIGH);//turn sensor on
   delay(10);
-  dataParams.h = analogRead(0);//decrease resolution to 1 byte
+  dataParams.h = (byte) analogRead(0)>>2;//decrease resolution to 1 byte
   digitalWrite(POWERPIN, LOW);//turn sensor off
 /* jeg vil med
   shuntvoltage = ina219.getShuntVoltage_mV();
@@ -177,7 +177,8 @@ void logSensorReading() {
   dataParams.time = millis();
   //Serial.println("Saving the following to EEPROM");
   //print_measurementSet();
-  EEPROM_writeAnything(measCount++,dataParams);
+  EEPROM_writeAnything(measCount*sizeof(measurementSet),dataParams);
+  measCount++;
 }
 
 
