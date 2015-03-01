@@ -5,11 +5,11 @@
 #define ADAFRUIT_CC3000_IRQ   3
 #define ADAFRUIT_CC3000_VBAT  5
 #define ADAFRUIT_CC3000_CS    10
-#include "plotly_streaming_cc3000wdt.h"
+#include "plotly_streaming_cc3000.h"
 
 #include <avr/dtostrf.h>
 #include <avr/pgmspace.h>
-#include <avr/wdt.h>
+
 
 plotly::plotly(char *username, char *api_key, char* stream_tokens[], char *filename, int nTraces)
   : cc3000(ADAFRUIT_CC3000_CS, ADAFRUIT_CC3000_IRQ, ADAFRUIT_CC3000_VBAT,SPI_CLOCK_DIV2){
@@ -38,31 +38,33 @@ bool plotly::init(){
     else if(log_level < 3) {
         Serial.println(F("... Attempting to connect to plotly's REST servers"));
     }
-    uint32_t ip = cc3000.IP2U32(107,21,214,199);
+
+    uint32_t ip = 0;
+    Serial.print(F("... Attempting to resolve IP address of plot.ly"));
+    while  (ip  ==  0)  {
+        if  (!  cc3000.getHostByName("www.plot.ly\n", &ip))  {
+          Serial.println(F("Couldn't resolve!"));
+        }
+        delay(500);
+    }
+    cc3000.printIPdotsRev(ip);
+
     // Try looking up the website's IP address
     client = cc3000.connectTCP(ip, 80);
     while ( !client.connected() ) {
-        fibonacci_ += fibonacci_;
-        if(fibonacci_>5){//indsat af Per prøv 5 gange med ca 1 min mlrum
-            Serial.println(F("Tried 5 times. Starting watchdog"));
-            wdt_enable(WDTO_2S); // hvis ikke lykkes start watchdog
-            delay(8100);
-        }else{
-            if(log_level < 4){
-                Serial.println(F("... Couldn\'t connect to plotly's REST servers... trying again in 1 min!"));
-                Serial.print("Trial number: ");
-                Serial.println(fibonacci_);
-            }
-            delay(61000);
-            client = cc3000.connectTCP(ip, 80);
+        if(log_level < 4){
+            Serial.println(F("... Couldn\'t connect to plotly's REST servers... trying again!"));
         }
+        fibonacci_ += fibonacci_;
+        delay(min(fibonacci_, 60000));
+        client = cc3000.connectTCP(ip, 80);
     }
     fibonacci_ = 1;
     if(log_level < 3){} Serial.println(F("... Connected to plotly's REST servers"));
     if(log_level < 3){} Serial.println(F("... Sending HTTP Post to plotly"));
     print_(F("POST /clientresp HTTP/1.1\r\n"));
-    print_(F("Host: 107.21.214.199\r\n"));
-    print_(F("User-Agent: Arduino/0.5.1\r\n"));
+    print_(F("Host: plot.ly:80\r\n"));
+    print_(F("User-Agent: Arduino/0.6.0\r\n"));
 
     print_(F("Content-Length: "));
     int contentLength = 126 + len_(username_) + len_(fileopt) + nTraces_*(87+len_(maxpoints)) + (nTraces_-1)*2 + len_(filename_);
@@ -129,96 +131,23 @@ bool plotly::init(){
     // Parse the response for the "All Streams Go!" and proceed to streaming
     // if we find it
     //
-    char allStreamsGo[] = "All Streams Go!";
-    char error[] = "\"error\": \"";
-    int asgCnt = 0; // asg stands for All Streams Go
-    char url[] = "\"url\": \"http://107.21.214.199/~";
-    char fid[4];
-    int fidCnt = 0;
-    int urlCnt = 0;
-    int usernameCnt = 0;
-    int urlLower = 0;
-    int urlUpper = 0;
-    bool proceed = false;
-    bool fidMatched = false;
 
     if(log_level < 2){
         Serial.println(F("... Sent message, waiting for plotly's response..."));
     }
-
     if(!dry_run){
+        char c;
         while(client.connected()){
             if(client.available()){
-                char c = client.read();
-                if(log_level < 2) Serial.print(c);
+                c = client.read();
 
-                //
-                // Attempt to read the "All streams go" msg if it exists
-                // by comparing characters as they roll in
-                //
-
-                if(asgCnt == len_(allStreamsGo) && !proceed){
-                    proceed = true;
-                }
-                else if(allStreamsGo[asgCnt]==c){
-                    asgCnt += 1;
-                } else if(asgCnt > 0){
-                    // reset counter
-                    asgCnt = 0;
-                }
-
-                //
-                // Extract the last bit of the URL from the response
-                // The url is in the form http://107.21.214.199/~USERNAME/FID
-                // We'll character-count up through char url[] and through username_, then start
-                // filling in characters into fid
-                //
-
-                if(log_level < 3){
-                    if(url[urlCnt]==c && urlCnt < len_(url)){
-                        urlCnt += 1;
-                    } else if(urlCnt > 0 && urlCnt < len_(url)){
-                        // Reset counter
-                        urlCnt = 0;
-                    }
-                    if(urlCnt == len_(url) && fidCnt < 4 && !fidMatched){
-                        // We've counted through the url, start counting through the username
-                        if(usernameCnt < len_(username_)+2){
-                            usernameCnt += 1;
-                        } else {
-                            // the url ends with "
-                            if(c != '"'){
-                                fid[fidCnt] = c;
-                                fidCnt += 1;
-                            } else if(fidCnt>0){
-                                fidMatched = true;
-                            }
-
-                        }
-                    }
-                }
+                Serial.print(c);
             }
         }
         client.close();
     }
+    return true;
 
-    if(!dry_run && !proceed && log_level < 4){
-        Serial.println(F("... Error initializing stream, aborting. Try again or get in touch with Chris at chris@plot.ly"));
-    }
-
-    if(!dry_run && proceed && log_level < 3){
-        Serial.println(F("... A-ok from plotly, All Streams Go!"));
-        if(fidMatched){
-            Serial.print(F("... View your streaming plot here: https://plot.ly/~"));
-            Serial.print(username_);
-            Serial.print(F("/"));
-            for(int i=0; i<fidCnt; i++){
-                Serial.print(fid[i]);
-            }
-            Serial.println(F(""));
-        }
-    }
-    return proceed;
 }
 void plotly::openStream() {
     //
@@ -226,8 +155,8 @@ void plotly::openStream() {
     //
     if(log_level < 3){} Serial.println(F("... Connecting to plotly's streaming servers..."));
 
-    /*
     #define STREAM_SERVER "arduino.plot.ly"
+    Serial.println(F("... Looking up the IP address of arduino.plot.ly"));
     uint32_t stream_ip = 0;
     // Try looking up the website's IP address
     while (stream_ip == 0) {
@@ -235,8 +164,6 @@ void plotly::openStream() {
             if(log_level < 4){} Serial.println(F("Couldn't resolve!"));
         }
     }
-    */
-    uint32_t stream_ip = cc3000.IP2U32(107, 21, 214, 199);
 
     client = cc3000.connectTCP(stream_ip, 80);
     while ( !client.connected() ) {
@@ -250,7 +177,7 @@ void plotly::openStream() {
 
     print_(F("POST / HTTP/1.1\r\n"));
     print_(F("Host: arduino.plot.ly\r\n"));
-    print_(F("User-Agent: Python\r\n"));
+    print_(F("User-Agent: Arduino\r\n"));
     print_(F("Transfer-Encoding: chunked\r\n"));
     print_(F("Connection: close\r\n"));
     if(convertTimestamp){
