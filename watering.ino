@@ -48,7 +48,7 @@ int measCount = 0;
 char *tokens[nTraces] = {"s1swb3mjje","sb9xc012to","q1jyh0xoy7"};
 //char *tokens[nTraces] = {"x","x"}; //Skovbasses tokens
 // arguments: username, api key, streaming token, filename
-plotly graph = plotly("kaqmak", "23rkqd46jq", tokens, "MoistureAndCunt", nTraces);
+plotly graph = plotly("kaqmak", "yv586vmfqj", tokens, "MoistureAndCunt", nTraces);
 
 // Define watchdog timer interrupt.
 ISR(WDT_vect)
@@ -227,20 +227,19 @@ void setup() {
 
   wifi_connect();
   graph.log_level = 0;
-  graph.fileopt="overwrite"; // See the "Usage" section in https://github.com/plotly/arduino-api for details
-  //graph.fileopt = "extend"; // Remove this if you want the graph to be overwritten
+  //graph.fileopt="overwrite"; // See the "Usage" section in https://github.com/plotly/arduino-api for details
+  graph.fileopt = "extend"; // Remove this if you want the graph to be overwritten
   graph.timezone = "Europe/Copenhagen";
   graph.maxpoints = 5000;
-  plotly.timestamp = true; // tell plotly that you're stamping your data with a millisecond counter and that you want plotly to convert it into a date-formatted graph
+  graph.convertTimestamp = true; // tell plotly that you're stamping your data with a millisecond counter and that you want plotly to convert it into a date-formatted graph
   bool success;
 //  delay(65000);
   success = graph.init();
 
   if(!success){
-    Serial.println("No succes in init. Starting watchdog");
-    while(true){
-      wdt_enable(WDTO_8S);
-    }
+    Serial.println(F("No succes in init. Starting watchdog"));
+    wdt_enable(WDTO_1S);
+    while(true);
   }
   graph.openStream();
   delay(1000);
@@ -312,7 +311,7 @@ void loop() {
     }
   }
   delay(100);
-  
+
   // Go to sleep!
   sleep();
 }

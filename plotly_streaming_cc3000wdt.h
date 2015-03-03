@@ -1,5 +1,5 @@
-#ifndef plotly_streaming_cc3000_h
-#define plotly_streaming_cc3000_h
+#ifndef plotly_streaming_cc3000wdt_h
+#define plotly_streaming_cc3000wdt_h
 
 #include "Arduino.h"
 #include <avr/pgmspace.h>
@@ -7,6 +7,7 @@
 #include <Adafruit_CC3000.h>
 #include <ccspi.h>
 #include <SPI.h>
+#include <avr/wdt.h>
 
 class plotly
 {

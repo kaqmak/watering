@@ -5,10 +5,12 @@
 #define ADAFRUIT_CC3000_IRQ   3
 #define ADAFRUIT_CC3000_VBAT  5
 #define ADAFRUIT_CC3000_CS    10
-#include "plotly_streaming_cc3000.h"
+#include "plotly_streaming_cc3000wdt.h"
+#include "utility/socket.h"
 
 #include <avr/dtostrf.h>
 #include <avr/pgmspace.h>
+#include <avr/wdt.h>
 
 
 plotly::plotly(char *username, char *api_key, char* stream_tokens[], char *filename, int nTraces)
@@ -40,12 +42,24 @@ bool plotly::init(){
     }
 
     uint32_t ip = 0;
-    Serial.print(F("... Attempting to resolve IP address of plot.ly"));
-    while  (ip  ==  0)  {
-        if  (!  cc3000.getHostByName("www.plot.ly\n", &ip))  {
+    Serial.println(F("... Attempting to resolve IP address of plot.ly"));
+    int inc = 0;
+
+    uint32_t output; //hack inserted by PER check https://forums.adafruit.com/viewtopic.php?f=31&t=62691
+    cc3000.getHostByName("localhost", &output);
+    delay(500);
+    while  (ip  ==  0 && inc < 10)  {
+        if  (!  cc3000.getHostByName("www.plot.ly", &ip))  {
           Serial.println(F("Couldn't resolve!"));
         }
-        delay(500);
+        delay(5000);
+        inc++;
+    }
+    if (inc >= 10){
+        wdt_reset();
+        Serial.println(F("IP not resolved. starting watchdog"));
+        wdt_enable(WDTO_2S);
+        while(1);
     }
     cc3000.printIPdotsRev(ip);
 
@@ -137,18 +151,27 @@ bool plotly::init(){
     }
     if(!dry_run){
         char c;
-        while(client.connected()){
+        int count = 0; //inserted by Per
+        /*while(client.connected()){
+            if(client.available() && count < 1000){
+                c = client.read();
+                count++;
+                Serial.print(c);
+            }
+        }*/
+        while(client.connected() && count++ < 1000){
             if(client.available()){
                 c = client.read();
-
                 Serial.print(c);
             }
         }
+        Serial.print("Pers Count er ");
+        Serial.println(count);
         client.close();
     }
     return true;
 
-}
+  }
 void plotly::openStream() {
     //
     // Start request to stream servers
@@ -160,9 +183,15 @@ void plotly::openStream() {
     uint32_t stream_ip = 0;
     // Try looking up the website's IP address
     while (stream_ip == 0) {
-        if (! cc3000.getHostByName(STREAM_SERVER, &stream_ip)) {
-            if(log_level < 4){} Serial.println(F("Couldn't resolve!"));
+        //if (! cc3000.getHostByName(STREAM_SERVER, &stream_ip)) {
+        //    if(log_level < 4){} Serial.println(F("Couldn't resolve!"));
+        //}
+        if  (!  cc3000.getHostByName(STREAM_SERVER, &stream_ip))  {
+          if(log_level < 4){
+            Serial.println(F("Couldn't resolve2!"));
+            }
         }
+        delay(5000);
     }
 
     client = cc3000.connectTCP(stream_ip, 80);
