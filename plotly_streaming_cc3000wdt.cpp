@@ -45,9 +45,9 @@ bool plotly::init(){
     Serial.println(F("... Attempting to resolve IP address of plot.ly"));
     int inc = 0;
 
-    uint32_t output; //hack inserted by PER check https://forums.adafruit.com/viewtopic.php?f=31&t=62691
-    cc3000.getHostByName("localhost", &output);
-    delay(500);
+    //uint32_t output; //hack inserted by PER check https://forums.adafruit.com/viewtopic.php?f=31&t=62691
+    //cc3000.getHostByName("localhost", &output);
+    //delay(500);
     while  (ip  ==  0 && inc < 10)  {
         if  (!  cc3000.getHostByName("www.plot.ly", &ip))  {
           Serial.println(F("Couldn't resolve!"));
@@ -149,9 +149,9 @@ bool plotly::init(){
     if(log_level < 2){
         Serial.println(F("... Sent message, waiting for plotly's response..."));
     }
-    if(!dry_run){
+    /*if(!dry_run){
         char c;
-        int count = 0; //inserted by Per
+        int count = 0;*/ //inserted by Per
         /*while(client.connected()){
             if(client.available() && count < 1000){
                 c = client.read();
@@ -159,7 +159,7 @@ bool plotly::init(){
                 Serial.print(c);
             }
         }*/
-        while(client.connected() && count++ < 1000){
+        /*while(client.connected() && count++ < 1000){
             if(client.available()){
                 c = client.read();
                 Serial.print(c);
@@ -168,6 +168,18 @@ bool plotly::init(){
         Serial.print("Pers Count er ");
         Serial.println(count);
         client.close();
+    }
+    return true;*/
+    if(!dry_run){ //inserted from https://github.com/plotly/arduino-api/issues/31
+      char c;
+      while(client.connected()){
+          if(client.available()){
+              c = client.read();
+  
+              Serial.print(c);
+              client.close();
+          }
+      }
     }
     return true;
 
