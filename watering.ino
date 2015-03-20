@@ -48,7 +48,7 @@ int measCount = 0;
 char *tokens[nTraces] = {"s1swb3mjje","sb9xc012to","q1jyh0xoy7"};
 //char *tokens[nTraces] = {"x","x"}; //Skovbasses tokens
 // arguments: username, api key, streaming token, filename
-plotly graph = plotly("kaqmak", "yv586vmfqj", tokens, "MoistureAndCunt", nTraces);
+plotly graph = plotly("kaqmak", "yv586vmfqj", tokens, "MoistureAndCunt2", nTraces);
 
 // Define watchdog timer interrupt.
 ISR(WDT_vect)

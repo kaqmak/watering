@@ -185,16 +185,20 @@ bool plotly::init(){
 
   }
 void plotly::openStream() {
+      //setup watchdog to do reses and nor interupt
+
     //
     // Start request to stream servers
     //
-    if(log_level < 3){} Serial.println(F("... Connecting to plotly's streaming servers..."));
+    if(log_level < 3){} Serial.println(F("... Connecting to plotly's streaming servers...2"));
 
     #define STREAM_SERVER "arduino.plot.ly"
-    Serial.println(F("... Looking up the IP address of arduino.plot.ly"));
+    //#define STREAM_SERVER "www.plot.ly"
+    Serial.println(F("... Looking up the IP address of arduino.plot.ly2"));
     uint32_t stream_ip = 0;
+    
     // Try looking up the website's IP address
-    while (stream_ip == 0) {
+    /*while (stream_ip == 0) {
         //if (! cc3000.getHostByName(STREAM_SERVER, &stream_ip)) {
         //    if(log_level < 4){} Serial.println(F("Couldn't resolve!"));
         //}
@@ -204,15 +208,55 @@ void plotly::openStream() {
             }
         }
         delay(5000);
+    }*/
+    int inc = 0;
+    while  (stream_ip  ==  0 && inc < 10)  {
+        if ( !cc3000.getHostByName(STREAM_SERVER, &stream_ip)) {
+          Serial.println(F("Couldn't resolve2!"));
+        }
+        delay(5000);
+        inc++;
+    }
+    if (inc >= 10){
+        wdt_reset();
+        wdt_disable();
+        noInterrupts();
+        // Enable watchdog as reset
+        WDTCSR &= ~(1<<WDIE);
+        // Enable interrupts again.
+        interrupts();
+        wdt_disable();
+        Serial.println(F("IP not resolved. starting watchdog2"));
+        wdt_enable(WDTO_2S);
+        while(1);
     }
 
     client = cc3000.connectTCP(stream_ip, 80);
-    while ( !client.connected() ) {
-        if(log_level < 4){} Serial.println(F("... Couldn\'t connect to servers... trying again!"));
+    while ( !client.connected() & fibonacci_<100) {
+      
+        if(log_level < 4){
+          Serial.print(F("Fibonacci_ ="));
+          Serial.println(fibonacci_);
+        } 
+        Serial.println(F("... Couldn\'t connect to servers... trying again!"));
         fibonacci_ += fibonacci_;
-        delay(min(fibonacci_, 60000));
+        delay(min(100*fibonacci_, 60000));
         client = cc3000.connectTCP(stream_ip, 80);
     }
+    if (fibonacci_>=100){
+            Serial.println(F("Could not connect. Fibonachi>100. Starting watch dog"));
+            wdt_reset();
+            wdt_disable();
+            noInterrupts();
+            // Enable watchdog as reset
+            WDTCSR &= ~(1<<WDIE);
+            // Enable interrupts again.
+            interrupts();
+            wdt_disable();
+            wdt_enable(WDTO_2S);
+            while(1);
+    }
+    
     fibonacci_ = 1;
     if(log_level < 3){} Serial.println(F("... Connected to plotly's streaming servers\n... Initializing stream"));
 
