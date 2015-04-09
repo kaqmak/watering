@@ -3,7 +3,6 @@
 
 #include "Arduino.h"
 #include <avr/pgmspace.h>
-
 #include <Adafruit_CC3000.h>
 #include <ccspi.h>
 #include <SPI.h>

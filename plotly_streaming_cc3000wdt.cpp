@@ -7,7 +7,6 @@
 #define ADAFRUIT_CC3000_CS    10
 #include "plotly_streaming_cc3000wdt.h"
 #include "utility/socket.h"
-
 #include <avr/dtostrf.h>
 #include <avr/pgmspace.h>
 #include <avr/wdt.h>

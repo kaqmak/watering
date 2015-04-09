@@ -48,7 +48,7 @@ int measCount = 0;
 char *tokens[nTraces] = {"s1swb3mjje","sb9xc012to","q1jyh0xoy7"};
 //char *tokens[nTraces] = {"x","x"}; //Skovbasses tokens
 // arguments: username, api key, streaming token, filename
-plotly graph = plotly("kaqmak", "yv586vmfqj", tokens, "MoistureAndCunt2", nTraces);
+plotly graph = plotly("kaqmak", "yv586vmfqj", tokens, "MoistureMini", nTraces);
 
 // Define watchdog timer interrupt.
 ISR(WDT_vect)
@@ -84,10 +84,10 @@ boolean wifi_connect(){
   Serial.println(F("Turning on CC3000."));
   //wlan_start(0);
 
-  Serial.println(F("\n... Initializing..."));
+  //Serial.println(F("\n... Initializing..."));
   if (!graph.cc3000.begin())
   {
-    Serial.println(F("... Couldn't begin()! Check your wiring?"));
+    Serial.println(F("... Couldn't begin()!"));
     return false;
     //Serial.println(F("Starting watchdog"));    
     //wdt_enable(WDTO_8S);
@@ -105,15 +105,15 @@ boolean wifi_connect(){
     //while(1);
   }
 
-  Serial.println(F("... Connected!"));
+  //Serial.println(F("... Connected!"));
 
   /* Wait for DHCP to complete */
-  Serial.println(F("Request DHCP"));
+  //Serial.println(F("Request DHCP"));
   int attempts = 0;
   while (!graph.cc3000.checkDHCP())
   {
     if (attempts > 20) {
-      Serial.println(F("DHCP didn't finish!"));
+      Serial.println(F("no DHCP"));
       return false;
     }
     attempts += 1;
@@ -142,11 +142,11 @@ void shutdownWiFi() {
   
   // Shut down the CC3000.
 
-  Serial.println("Trying to shut down cc3000");
+  Serial.println("Shutting cc3000");
    wlan_stop();
   //graph.cc3000.stop();
   
-  Serial.println(F("CC3000 shut down."));
+  //Serial.println(F("CC3000 shut down."));
 }
 
 /*void print_measurementSet() {
@@ -187,7 +187,7 @@ void uploadSensorReading(){
   // Connect to the server and send the reading.
 
  //Upload
-  Serial.println(F("Sending measurements "));
+  Serial.println(F("Sending measurements"));
   graph.reconnectStream();
 
   // Hent EEPROM data
@@ -237,7 +237,7 @@ void setup() {
   success = graph.init();
 
   if(!success){
-    Serial.println(F("No succes in init. Starting watchdog"));
+    Serial.println(F("No succes in init"));
     wdt_enable(WDTO_1S);
     while(true);
   }
@@ -245,7 +245,7 @@ void setup() {
   delay(1000);
   graph.closeStream();
   delay(1000);
-  Serial.println(F("Stream closed. Trying wlan_stop in setup"));
+  //Serial.println(F("Stream closed. Trying wlan_stop in setup"));
   wlan_stop();
  // This next section of code is timing critical, so interrupts are disabled.
   // See more details of how to change the watchdog in the ATmega328P datasheet
@@ -266,16 +266,16 @@ void setup() {
   // Enable interrupts again.
   interrupts();
 
-  Serial.println(F("Setup complete."));
+  //Serial.println(F("Setup complete."));
   delay(100);
 }
 
 
 void loop() {
-  Serial.println(F("inside loop()"));
+  //Serial.println(F("inside loop()"));
   if (watchdogActivated)
   {
-    Serial.println(F("inside watchdogActivated"));
+    //Serial.println(F("inside watchdogActivated"));
     delay(100);
     watchdogActivated = false;
     // Increase the count of sleep iterations and take a sensor
@@ -283,7 +283,7 @@ void loop() {
     sleepIterations += 1;
     Serial.println(sleepIterations);
     if (sleepIterations >= MAX_SLEEP_ITERATIONS) {
-      Serial.println(F("sleepIteration above MAX_SLEEP"));
+      //Serial.println(F("sleepIteration above MAX_SLEEP"));
       Serial.flush();
       delay(10);
 
@@ -300,10 +300,10 @@ void loop() {
       wlan_start(0);
       // Log the sensor data (waking the CC3000, etc. as needed)
       if (wifi_connect()) {
-        Serial.println(F("in Loop: wifi_connected. Trying uploadSensorReading"));
+        //Serial.println(F("in Loop: wifi_connected. Trying uploadSensorReading"));
         Serial.flush();
         uploadSensorReading();
-        Serial.println(F("after uploadSensorReading"));
+        //Serial.println(F("after uploadSensorReading"));
         Serial.flush();
       }
       shutdownWiFi();
