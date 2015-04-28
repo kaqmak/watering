@@ -5,17 +5,19 @@
 #include <avr/wdt.h>
 #include <avr/sleep.h>
 #include <avr/power.h>
-#include <Adafruit_INA219.h>
+//#include <Adafruit_INA219.h>
 #include <Wire.h>
 #include <EEPROM.h>
 #include "EEPROMAnything.h"
 
-#define WLAN_SSID       "kaqmak"
+#define WLAN_SSID       "FTNK-AL0001"
 #define WLAN_PASS       "Saibaba8"
 //#define WLAN_SSID       "DyrehavenWiFi"
 //#define WLAN_PASS       "dyrehaven34"
 //#define WLAN_SSID       "Fermentoren"
 //#define WLAN_PASS       "halmtorvet29c"
+//#define WLAN_SSID       "tju"
+//#define WLAN_PASS       "rasmusogelsebeth"
 #define WLAN_SECURITY   WLAN_SEC_WPA2
 
 //#define LOGGING_FREQ_SECONDS   3600       // Seconds to wait before a new sensor reading is logged.
@@ -30,6 +32,7 @@
 #define POWERPIN 7
 int sleepIterations = 0;
 volatile bool watchdogActivated = false;
+volatile bool sleep_entered;
 #define nTraces 3
 
 
@@ -84,7 +87,7 @@ boolean wifi_connect(){
   Serial.println(F("Turning on CC3000."));
   //wlan_start(0);
 
-  //Serial.println(F("\n... Initializing..."));
+  Serial.println(F("\n... Initializing..."));
   if (!graph.cc3000.begin())
   {
     Serial.println(F("... Couldn't begin()!"));
@@ -105,7 +108,7 @@ boolean wifi_connect(){
     //while(1);
   }
 
-  //Serial.println(F("... Connected!"));
+  Serial.println(F("... Connected!"));
 
   /* Wait for DHCP to complete */
   //Serial.println(F("Request DHCP"));
@@ -292,12 +295,13 @@ void loop() {
       // Log the sensor data (waking the CC3000, etc. as needed)
 
       logSensorReading();
-      Serial.println(F("after logSensorReading"));
+      //Serial.println(F("after logSensorReading"));
       Serial.flush();
     }
     if(measCount >= MEASUREMENTS_BEFORE_UPLOAD)
     {
       wlan_start(0);
+      delay(500);
       // Log the sensor data (waking the CC3000, etc. as needed)
       if (wifi_connect()) {
         //Serial.println(F("in Loop: wifi_connected. Trying uploadSensorReading"));
@@ -305,6 +309,8 @@ void loop() {
         uploadSensorReading();
         //Serial.println(F("after uploadSensorReading"));
         Serial.flush();
+      }else{
+        asm volatile ("  jmp 0");
       }
       shutdownWiFi();
 

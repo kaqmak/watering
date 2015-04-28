@@ -50,27 +50,46 @@ bool plotly::init(){
     while  (ip  ==  0 && inc < 10)  {
         if  (!  cc3000.getHostByName("www.plot.ly", &ip))  {
           Serial.println(F("Couldn't resolve!"));
+          delay(100);
         }
         delay(5000);
         inc++;
     }
     if (inc >= 10){
-        wdt_reset();
+        //wdt_reset();
         Serial.println(F("IP not resolved. starting watchdog"));
-        wdt_enable(WDTO_2S);
-        while(1);
-    }
+        asm volatile ("  jmp 0");
+}
+        //wdt_enable(WDTO_2S);
+        //while(1);
+    //}
     cc3000.printIPdotsRev(ip);
 
     // Try looking up the website's IP address
     client = cc3000.connectTCP(ip, 80);
-    while ( !client.connected() ) {
+    /*while ( !client.connected() ) {
         if(log_level < 4){
             Serial.println(F("... Couldn\'t connect to plotly's REST servers... trying again!"));
         }
         fibonacci_ += fibonacci_;
         delay(min(fibonacci_, 60000));
         client = cc3000.connectTCP(ip, 80);
+    }*/
+    while ( !client.connected() & fibonacci_<262144) {
+      
+        if(log_level < 4){
+          Serial.print(F("Fibonacci_ ="));
+          Serial.println(fibonacci_);
+        } 
+        //Serial.println(F("... Couldn\'t connect to servers... trying again!"));
+        fibonacci_ += fibonacci_;
+        delay(min(fibonacci_, 60000));
+        client = cc3000.connectTCP(ip, 80);
+    }
+    if (fibonacci_>=262144){
+            Serial.println(F("Fibonachi>262144. Starting watch dog"));
+            delay(100);
+            asm("  jmp 0");
     }
     fibonacci_ = 1;
     if(log_level < 3){} Serial.println(F("... Connected to plotly's REST servers"));
@@ -212,48 +231,48 @@ void plotly::openStream() {
     while  (stream_ip  ==  0 && inc < 10)  {
         if ( !cc3000.getHostByName(STREAM_SERVER, &stream_ip)) {
           Serial.println(F("Couldn't resolve2!"));
+          delay(100);
         }
         delay(5000);
         inc++;
     }
     if (inc >= 10){
-        wdt_reset();
-        wdt_disable();
-        noInterrupts();
-        // Enable watchdog as reset
-        WDTCSR &= ~(1<<WDIE);
-        // Enable interrupts again.
-        interrupts();
-        wdt_disable();
         Serial.println(F("IP not resolved. starting watchdog2"));
-        wdt_enable(WDTO_2S);
-        while(1);
+        delay(100);
+        asm("  jmp 0");
+        //wdt_enable(WDTO_2S);
+        //while(1);
     }
 
     client = cc3000.connectTCP(stream_ip, 80);
-    while ( !client.connected() & fibonacci_<100) {
+    while ( !client.connected() & fibonacci_<262144) {
       
         if(log_level < 4){
           Serial.print(F("Fibonacci_ ="));
           Serial.println(fibonacci_);
         } 
-        Serial.println(F("... Couldn\'t connect to servers... trying again!"));
+        //Serial.println(F("... Couldn\'t connect to servers... trying again!"));
         fibonacci_ += fibonacci_;
-        delay(min(100*fibonacci_, 60000));
+        delay(min(fibonacci_, 60000));
         client = cc3000.connectTCP(stream_ip, 80);
     }
-    if (fibonacci_>=100){
-            Serial.println(F("Could not connect. Fibonachi>100. Starting watch dog"));
-            wdt_reset();
+    if (fibonacci_>=262144){
+            Serial.println(F("Could not connect. Fibonachi>262144. Starting watch dog"));
+            delay(100);
+            asm("  jmp 0");
+            /*wdt_reset();
             wdt_disable();
             noInterrupts();
+            // Set the watchdog reset bit in the MCU status register to 0.
+            MCUSR &= ~(1<<WDRF);
+            WDTCSR |= (1 << WDCE) | (1 << WDE); // enable configuration changes
             // Enable watchdog as reset
             WDTCSR &= ~(1<<WDIE);
             // Enable interrupts again.
             interrupts();
             wdt_disable();
             wdt_enable(WDTO_2S);
-            while(1);
+            while(1);*/
     }
     
     fibonacci_ = 1;
@@ -273,6 +292,7 @@ void plotly::openStream() {
 
     if(log_level < 3){} Serial.println(F("... Done initializing, ready to stream!"));
 }
+
 
 void plotly::closeStream(){
     print_(F("0\r\n\r\n"));
