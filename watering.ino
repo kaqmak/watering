@@ -10,8 +10,12 @@
 #include <EEPROM.h>
 #include "EEPROMAnything.h"
 
-#define WLAN_SSID       "FTNK-AL0001"
+//#define WLAN_SSID       "FTNK-AL0001"
+#define WLAN_SSID       "kaqmak"
 #define WLAN_PASS       "Saibaba8"
+//#define WLAN_SSID       "PersIphone"
+//#define WLAN_PASS       "Saibaba8"
+
 //#define WLAN_SSID       "DyrehavenWiFi"
 //#define WLAN_PASS       "dyrehaven34"
 //#define WLAN_SSID       "Fermentoren"
@@ -19,6 +23,7 @@
 //#define WLAN_SSID       "tju"
 //#define WLAN_PASS       "rasmusogelsebeth"
 #define WLAN_SECURITY   WLAN_SEC_WPA2
+
 
 //#define LOGGING_FREQ_SECONDS   3600       // Seconds to wait before a new sensor reading is logged.
 #define LOGGING_FREQ_SECONDS   32       // testing
@@ -30,6 +35,7 @@
 
 #define INPIN 2
 #define POWERPIN 7
+#define WIFIPWRPIN 8
 int sleepIterations = 0;
 volatile bool watchdogActivated = false;
 volatile bool sleep_entered;
@@ -53,34 +59,63 @@ char *tokens[nTraces] = {"s1swb3mjje","sb9xc012to","q1jyh0xoy7"};
 // arguments: username, api key, streaming token, filename
 plotly graph = plotly("kaqmak", "yv586vmfqj", tokens, "MoistureMini", nTraces);
 
-// Define watchdog timer interrupt.
-ISR(WDT_vect)
+
+////////////////////////////////////////
+inline void configure_wdt(void)
 {
-  // Set the watchdog activated flag.
-  // Note that you shouldn't do much work inside an interrupt handler.
-  watchdogActivated = true;
+    /* A 'timed' sequence is required for configuring the WDT, so we need to 
+     * disable interrupts here.
+     */
+    cli(); 
+    wdt_reset();
+    MCUSR &= ~_BV(WDRF);
+    /* Start the WDT Config change sequence. */
+    WDTCSR |= _BV(WDCE) | _BV(WDE);
+    /* Configure the prescaler and the WDT for interrupt mode only*/
+    WDTCSR =  _BV(WDP0) | _BV(WDP3) | _BV(WDIE);
+    sei();
+}
+
+void app_sleep_init(void)
+{
+    /* Setup the flag. */
+    sleep_entered = false;
+    configure_wdt();
 }
 
 // Put the Arduino to sleep.
-void sleep()
+void sleep(void)
 {
-  // Set sleep to full power down.  Only external interrupts or 
-  // the watchdog timer can wake the CPU!
-  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
-
-  // Turn off the ADC while asleep.
-  power_adc_disable();
-
-  // Enable sleep and enter sleep mode.
-  sleep_mode();
-
-  // CPU is now asleep and program execution completely halts!
-  // Once awake, execution will resume at this point.
-
-  // When awake, disable sleep mode and turn on all devices.
-  sleep_disable();
-  power_all_enable();
+    set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+    sleep_entered = true;
+    sleep_enable();
+    sei();
+    sleep_mode(); 
+    /* Execution will resume here. */
 }
+// Define watchdog timer interrupt.
+// Define watchdog timer interrupt.
+ISR(WDT_vect)
+{
+    /* Check if we are in sleep mode or it is a genuine WDR. */
+    if(sleep_entered == false)
+    {
+        /* The app has locked up, force a WDR. */
+        wdt_enable(WDTO_2S);
+        while(1);
+    }
+    else
+    {
+        wdt_reset();
+        /* Service the timer if necessary. */
+        sleep_entered = false;
+        sleep_disable();
+        
+        /* Inline function so OK to call from here. */
+        configure_wdt();
+    }
+}
+
 
 boolean wifi_connect(){
   /* Initialise the module */
@@ -221,6 +256,8 @@ void setup() {
   pinMode(INPIN, INPUT);      // sets the digital pin  as input
   pinMode(POWERPIN, OUTPUT);
   digitalWrite(POWERPIN, LOW);
+  pinMode(WIFIPWRPIN, OUTPUT);
+  digitalWrite(WIFIPWRPIN, HIGH);
 
   //currentsensor
   float shuntvoltage = 0;
@@ -250,57 +287,45 @@ void setup() {
   delay(1000);
   //Serial.println(F("Stream closed. Trying wlan_stop in setup"));
   wlan_stop();
- // This next section of code is timing critical, so interrupts are disabled.
-  // See more details of how to change the watchdog in the ATmega328P datasheet
-  // around page 50, Watchdog Timer.
-  noInterrupts();
- // Set the watchdog reset bit in the MCU status register to 0.
-  MCUSR &= ~(1<<WDRF);
-
-  // Set WDCE and WDE bits in the watchdog control register.
-  WDTCSR |= (1<<WDCE) | (1<<WDE);
-
-  // Set watchdog clock prescaler bits to a value of 8 seconds.
-  WDTCSR = (1<<WDP0) | (1<<WDP3);
-
-  // Enable watchdog as interrupt only (no reset).
-  WDTCSR |= (1<<WDIE);
-
-  // Enable interrupts again.
-  interrupts();
-
-  //Serial.println(F("Setup complete."));
-  delay(100);
+  digitalWrite(WIFIPWRPIN, LOW);
+ //initialize sleep parameters
+  app_sleep_init();
+ 
 }
 
 
 void loop() {
   //Serial.println(F("inside loop()"));
-  if (watchdogActivated)
-  {
+
     //Serial.println(F("inside watchdogActivated"));
     delay(100);
-    watchdogActivated = false;
+    //watchdogActivated = false;
     // Increase the count of sleep iterations and take a sensor
     // reading once the max number of iterations has been hit.
     sleepIterations += 1;
     Serial.println(sleepIterations);
     if (sleepIterations >= MAX_SLEEP_ITERATIONS) {
       //Serial.println(F("sleepIteration above MAX_SLEEP"));
-      Serial.flush();
+      //Serial.flush();
       delay(10);
 
       // Reset the number of sleep iterations.
       sleepIterations = 0;
       // Log the sensor data (waking the CC3000, etc. as needed)
-
+      //wdt_enable(WDTO_8S); Skal denne med?
       logSensorReading();
       //Serial.println(F("after logSensorReading"));
       Serial.flush();
     }
     if(measCount >= MEASUREMENTS_BEFORE_UPLOAD)
     {
+      wdt_enable(WDTO_8S);
+      digitalWrite(WIFIPWRPIN, HIGH);//turn on power to the CC3000
+      delay(500);
       wlan_start(0);
+      wdt_reset();
+      wdt_disable();
+      //configure_wdt();
       delay(500);
       // Log the sensor data (waking the CC3000, etc. as needed)
       if (wifi_connect()) {
@@ -308,14 +333,20 @@ void loop() {
         Serial.flush();
         uploadSensorReading();
         //Serial.println(F("after uploadSensorReading"));
-        Serial.flush();
+        //Serial.flush();
       }else{
         asm volatile ("  jmp 0");
       }
+      wdt_enable(WDTO_8S);
       shutdownWiFi();
-
+      delay(400);
+      digitalWrite(WIFIPWRPIN, LOW);//turn off power to the CC3000
+      Serial.print("Efter wifipin low");
+      //wdt_reset();
+      //wdt_disable();
+      app_sleep_init();//needed to switch back to interrupt mode
     }
-  }
+
   delay(100);
 
   // Go to sleep!
