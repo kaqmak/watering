@@ -208,6 +208,8 @@ void plotly::openStream() {
     //
     // Start request to stream servers
     //
+    wdt_enable(WDTO_8S);
+    wdt_reset();
     if(log_level < 3){} Serial.println(F("... Connecting to plotly's streaming servers...2"));
 
     #define STREAM_SERVER "arduino.plot.ly"
@@ -229,22 +231,28 @@ void plotly::openStream() {
     }*/
     int inc = 0;
     while  (stream_ip  ==  0 && inc < 10)  {
+       wdt_reset();
         if ( !cc3000.getHostByName(STREAM_SERVER, &stream_ip)) {
           Serial.println(F("Couldn't resolve2!"));
           delay(100);
         }
+        wdt_reset();
         delay(5000);
         inc++;
     }
     if (inc >= 10){
         Serial.println(F("IP not resolved. starting watchdog2"));
         delay(100);
+        wdt_reset();
         asm("  jmp 0");
         //wdt_enable(WDTO_2S);
         //while(1);
     }
 
+    wdt_reset();
     client = cc3000.connectTCP(stream_ip, 80);
+    wdt_reset();
+    wdt_disable();//disable. delay(min(fibonacci_, 60000))> 8s
     while ( !client.connected() & fibonacci_<262144) {
       
         if(log_level < 4){
@@ -277,7 +285,8 @@ void plotly::openStream() {
     
     fibonacci_ = 1;
     if(log_level < 3){} Serial.println(F("... Connected to plotly's streaming servers\n... Initializing stream"));
-
+    wdt_enable(WDTO_8S);
+    wdt_reset();
     print_(F("POST / HTTP/1.1\r\n"));
     print_(F("Host: arduino.plot.ly\r\n"));
     print_(F("User-Agent: Arduino\r\n"));
@@ -289,6 +298,8 @@ void plotly::openStream() {
         print_(F("\"\r\n"));
     }
     print_(F("\r\n"));
+    wdt_reset();
+    wdt_disable();
 
     if(log_level < 3){} Serial.println(F("... Done initializing, ready to stream!"));
 }
@@ -365,12 +376,17 @@ void plotly::plot(unsigned long x, float y, char *token){
 
     char s_[15];
     dtostrf(y,2,3,s_);
-
+    
+    wdt_enable(WDTO_8S);
+    wdt_reset();
     jsonStart(len_(x)+len_(s_)-1);
+    wdt_reset();
     print_(x);
     jsonMiddle();
     print_(y);
     jsonEnd(token);
+    wdt_reset();
+    wdt_disable();
 }
 void plotly::print_(int d){
     if(log_level < 2) Serial.print(d);

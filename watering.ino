@@ -11,13 +11,13 @@
 #include "EEPROMAnything.h"
 
 //#define WLAN_SSID       "FTNK-AL0001"
-#define WLAN_SSID       "kaqmak"
-#define WLAN_PASS       "Saibaba8"
+//#define WLAN_SSID       "kaqmak"
+//#define WLAN_PASS       "Saibaba8"
 //#define WLAN_SSID       "PersIphone"
 //#define WLAN_PASS       "Saibaba8"
 
-//#define WLAN_SSID       "DyrehavenWiFi"
-//#define WLAN_PASS       "dyrehaven34"
+#define WLAN_SSID       "DyrehavenWiFi"
+#define WLAN_PASS       "dyrehaven34"
 //#define WLAN_SSID       "Fermentoren"
 //#define WLAN_PASS       "halmtorvet29c"
 //#define WLAN_SSID       "tju"
@@ -98,10 +98,14 @@ void sleep(void)
 ISR(WDT_vect)
 {
     /* Check if we are in sleep mode or it is a genuine WDR. */
+    Serial.println('He he');
+    Serial.flush();
     if(sleep_entered == false)
     {
         /* The app has locked up, force a WDR. */
+        //
         wdt_enable(WDTO_2S);
+        
         while(1);
     }
     else
@@ -123,6 +127,8 @@ boolean wifi_connect(){
   //wlan_start(0);
 
   Serial.println(F("\n... Initializing..."));
+  wdt_enable(WDTO_8S);
+  wdt_reset();
   if (!graph.cc3000.begin())
   {
     Serial.println(F("... Couldn't begin()!"));
@@ -131,18 +137,23 @@ boolean wifi_connect(){
     //wdt_enable(WDTO_8S);
     //while(1);
   }
+  Serial.println(F("Initialized"));
+  wdt_reset();
 
   // Optional SSID scan
   // listSSIDResults();
-
+  //wdt_enable(WDTO_8S);
+  //wdt_reset();
   if (!graph.cc3000.connectToAP(WLAN_SSID, WLAN_PASS, WLAN_SECURITY)) {
     Serial.println(F("Failed connecting to WLAN!"));
     //Serial.println(F("Starting watchdog"));
+    //wdt_reset();
+    //wdt_disable();
     return false;
    // wdt_enable(WDTO_8S); 
     //while(1);
   }
-
+  wdt_reset();
   Serial.println(F("... Connected!"));
 
   /* Wait for DHCP to complete */
@@ -150,14 +161,18 @@ boolean wifi_connect(){
   int attempts = 0;
   while (!graph.cc3000.checkDHCP())
   {
+    wdt_reset();
     if (attempts > 20) {
       Serial.println(F("no DHCP"));
+      wdt_disable();
       return false;
     }
     attempts += 1;
     delay(1000);
   }
   // Return success, the CC3000 is enabled and connected to the network.
+  wdt_reset();
+  wdt_disable();
   return true;
 
 }
@@ -226,7 +241,7 @@ void uploadSensorReading(){
 
  //Upload
   Serial.println(F("Sending measurements"));
-  graph.reconnectStream();
+  //graph.reconnectStream();
 
   // Hent EEPROM data
   for(int i=0; i<measCount; i++){
@@ -264,8 +279,8 @@ void setup() {
   float busvoltage = 0;
   //float current_mA = 0;
   //float loadvoltage = 0;
-
-  wifi_connect();
+  app_sleep_init();
+  wifi_connect();  
   graph.log_level = 0;
   //graph.fileopt="overwrite"; // See the "Usage" section in https://github.com/plotly/arduino-api for details
   graph.fileopt = "extend"; // Remove this if you want the graph to be overwritten
@@ -289,7 +304,7 @@ void setup() {
   wlan_stop();
   digitalWrite(WIFIPWRPIN, LOW);
  //initialize sleep parameters
-  app_sleep_init();
+  
  
 }
 
