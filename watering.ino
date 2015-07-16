@@ -11,13 +11,13 @@
 #include "EEPROMAnything.h"
 
 //#define WLAN_SSID       "FTNK-AL0001"
-//#define WLAN_SSID       "kaqmak"
-//#define WLAN_PASS       "Saibaba8"
+#define WLAN_SSID       "kaqmak"
+#define WLAN_PASS       "Saibaba8"
 //#define WLAN_SSID       "PersIphone"
 //#define WLAN_PASS       "Saibaba8"
 
-#define WLAN_SSID       "DyrehavenWiFi"
-#define WLAN_PASS       "dyrehaven34"
+//#define WLAN_SSID       "DyrehavenWiFi"
+//#define WLAN_PASS       "dyrehaven34"
 //#define WLAN_SSID       "Fermentoren"
 //#define WLAN_PASS       "halmtorvet29c"
 //#define WLAN_SSID       "tju"
@@ -40,20 +40,21 @@ int sleepIterations = 0;
 volatile bool watchdogActivated = false;
 volatile bool sleep_entered;
 #define nTraces 3
-
+#define DEBUG_MODE 1
 
 struct measurementSet
   {
     byte h;
     unsigned long time;
-    float current_mA;
-    float loadvoltage;
+    //float current_mA;
+    //float loadvoltage;
   } dataParams;
 
 
 //EEPROM params
 int measCount = 0;
 
+//char *tokens[nTraces] = {"s1swb3mjje","sb9xc012to","q1jyh0xoy7"};
 char *tokens[nTraces] = {"s1swb3mjje","sb9xc012to","q1jyh0xoy7"};
 //char *tokens[nTraces] = {"x","x"}; //Skovbasses tokens
 // arguments: username, api key, streaming token, filename
@@ -90,6 +91,7 @@ void sleep(void)
     sleep_entered = true;
     sleep_enable();
     sei();
+    Serial.flush();
     sleep_mode(); 
     /* Execution will resume here. */
 }
@@ -98,8 +100,6 @@ void sleep(void)
 ISR(WDT_vect)
 {
     /* Check if we are in sleep mode or it is a genuine WDR. */
-    Serial.println('He he');
-    Serial.flush();
     if(sleep_entered == false)
     {
         /* The app has locked up, force a WDR. */
@@ -217,6 +217,7 @@ void logSensorReading() {
   digitalWrite(POWERPIN, HIGH);//turn sensor on
   delay(10);
   dataParams.h = (byte) analogRead(0)>>2;//decrease resolution to 1 byte
+  //dataParams.h = (byte) analogRead(0);//10 bit precision
   digitalWrite(POWERPIN, LOW);//turn sensor off
 /* jeg vil med
   shuntvoltage = ina219.getShuntVoltage_mV();
@@ -225,8 +226,8 @@ void logSensorReading() {
   dataParams.loadvoltage = busvoltage + (shuntvoltage / 1000);
   dataParams.time = millis();
 */
-  dataParams.current_mA = analogRead(1);
-  dataParams.loadvoltage = analogRead(2);
+  //dataParams.current_mA = analogRead(1);
+  //dataParams.loadvoltage = analogRead(2);
   dataParams.time = millis();
   //Serial.println("Saving the following to EEPROM");
   //print_measurementSet();
@@ -249,8 +250,8 @@ void uploadSensorReading(){
       //Serial.println("Fethed this from EEPROM");
       //print_measurementSet();
       graph.plot(dataParams.time, dataParams.h, tokens[0]);//change names
-      graph.plot(dataParams.time, dataParams.current_mA, tokens[1]);
-      graph.plot(dataParams.time, dataParams.loadvoltage, tokens[2]);
+      //graph.plot(dataParams.time, dataParams.current_mA, tokens[1]);
+      //graph.plot(dataParams.time, dataParams.loadvoltage, tokens[2]);
       // Note that if you're sending a lot of data you
       // might need to tweak the delay here so the CC3000 has
       // time to finish sending all the data before shutdown.
@@ -300,27 +301,29 @@ void setup() {
   delay(1000);
   graph.closeStream();
   delay(1000);
-  //Serial.println(F("Stream closed. Trying wlan_stop in setup"));
+  Serial.println(F("Stream closed. Trying wlan_stop in setup"));
   wlan_stop();
   digitalWrite(WIFIPWRPIN, LOW);
  //initialize sleep parameters
-  
+  app_sleep_init();
  
 }
 
 
 void loop() {
-  //Serial.println(F("inside loop()"));
-
+  Serial.println(F("inside loop()"));
+  
+  //sleep();
     //Serial.println(F("inside watchdogActivated"));
     delay(100);
     //watchdogActivated = false;
     // Increase the count of sleep iterations and take a sensor
     // reading once the max number of iterations has been hit.
     sleepIterations += 1;
+    Serial.print("Sleep it: ");
     Serial.println(sleepIterations);
     if (sleepIterations >= MAX_SLEEP_ITERATIONS) {
-      //Serial.println(F("sleepIteration above MAX_SLEEP"));
+      Serial.println(F("sleepIteration above MAX_SLEEP"));
       //Serial.flush();
       delay(10);
 
@@ -334,6 +337,7 @@ void loop() {
     }
     if(measCount >= MEASUREMENTS_BEFORE_UPLOAD)
     {
+      Serial.println(F("MeasCount above limit"));
       wdt_enable(WDTO_8S);
       digitalWrite(WIFIPWRPIN, HIGH);//turn on power to the CC3000
       delay(500);
@@ -357,14 +361,20 @@ void loop() {
       delay(400);
       digitalWrite(WIFIPWRPIN, LOW);//turn off power to the CC3000
       Serial.print("Efter wifipin low");
-      //wdt_reset();
-      //wdt_disable();
+      wdt_reset();
+      wdt_disable();
       app_sleep_init();//needed to switch back to interrupt mode
     }
 
   delay(100);
 
   // Go to sleep!
+   //wdt_reset();
+   // wdt_disable();
+  app_sleep_init();//per 25 June
+  Serial.println("About 2 sleep");
+  delay(200);
+  
   sleep();
 }
 
