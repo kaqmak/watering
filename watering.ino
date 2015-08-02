@@ -34,14 +34,13 @@
                                                          // watchdog timer configuration.
 #define MEASUREMENTS_BEFORE_UPLOAD 2
 
-//#define INPIN 2
+#define INPIN 2
 #define POWERPIN 7
 #define WIFIPWRPIN 8
-#define TEMPPWRPIN 6
-#define TEMPINPIN 9 // We have connected the DHT to Digital Pin __
-#define DHTTYPE DHT22 // This is the type of DHT Sensor (Change it to DHT11 if you're using that model)
-DHT dht(TEMPINPIN, DHTTYPE); // Initialize DHT object
-
+#define TEMPINPIN 9     // DHT signal pin
+#define TEMPPWRPIN 5//DHT power pin
+#define DHTTYPE DHT22
+DHT dht(TEMPINPIN, DHTTYPE);
 int sleepIterations = 0;
 volatile bool watchdogActivated = false;
 volatile bool sleep_entered;
@@ -50,10 +49,10 @@ volatile bool sleep_entered;
 
 struct measurementSet
   {
-    float h;
-    float temp;
-    int moist;
+    int h;
     unsigned long time;
+    float hum;
+    float temp;
     //float current_mA;
     //float loadvoltage;
   } dataParams;
@@ -95,14 +94,15 @@ void app_sleep_init(void)
 // Put the Arduino to sleep.
 void sleep(void)
 {
-    Serial.println("About to sleep");
     set_sleep_mode(SLEEP_MODE_PWR_DOWN);
     sleep_entered = true;
     sleep_enable();
     sei();
+    Serial.flush();
     sleep_mode(); 
     /* Execution will resume here. */
 }
+// Define watchdog timer interrupt.
 // Define watchdog timer interrupt.
 ISR(WDT_vect)
 {
@@ -112,7 +112,6 @@ ISR(WDT_vect)
         /* The app has locked up, force a WDR. */
         //
         wdt_enable(WDTO_2S);
-        
         while(1);
     }
     else
@@ -130,17 +129,7 @@ ISR(WDT_vect)
 
 boolean wifi_connect(){
   /* Initialise the module */
-  wdt_enable(WDTO_8S);
-    wdt_reset();
   Serial.println(F("Turning on CC3000."));
-  //wdt_enable(WDTO_8S);
-  digitalWrite(WIFIPWRPIN, HIGH);//turn on power to the CC3000
-  delay(500);
-  wlan_start(0);
-  delay(500);
-
-
-  
   //wlan_start(0);
 
   Serial.println(F("\n... Initializing..."));
@@ -154,7 +143,6 @@ boolean wifi_connect(){
     //wdt_enable(WDTO_8S);
     //while(1);
   }
-  
   Serial.println(F("Initialized"));
   wdt_reset();
 
@@ -182,7 +170,6 @@ boolean wifi_connect(){
     wdt_reset();
     if (attempts > 20) {
       Serial.println(F("no DHCP"));
-      Serial.flush();
       wdt_disable();
       return false;
     }
@@ -202,7 +189,6 @@ void shutdownWiFi() {
   // it was sometimes difficult to quickly reconnect to
   // my AP if I shut down the CC3000 without first
   // disconnecting from the network.
-  wdt_reset();
   if (graph.cc3000.checkConnected()) {
     graph.cc3000.disconnect();
   }
@@ -217,8 +203,6 @@ void shutdownWiFi() {
 
   Serial.println("Shutting cc3000");
    wlan_stop();
-   delay(100);
-   digitalWrite(WIFIPWRPIN, LOW);//turn off power to the CC3000
   //graph.cc3000.stop();
   
   //Serial.println(F("CC3000 shut down."));
@@ -235,22 +219,21 @@ void shutdownWiFi() {
 
 // Take a sensor reading and store in EEPROM
 void logSensorReading() {
-  // Take a sensor reading
+  // Take a moisture reading
   digitalWrite(POWERPIN, HIGH);//turn sensor on
-  digitalWrite(TEMPPWRPIN, HIGH);//turn DHT sensor on
+  //digitalWrite(WIFIPWRPIN, HIGH);
   delay(10);
-  //Serial.print("h= ");
-  //Serial.println(analogRead(0));
-  //Serial.print("h>>2= ");
-  //Serial.println(analogRead(0)>>2);
   //dataParams.h = (byte) analogRead(0)>>2;//decrease resolution to 1 byte
-  dataParams.moist = analogRead(0);
-  dataParams.h = dht.readHumidity();
-  dataParams.temp = dht.readHumidity();
-  //Serial.print("dataParams.h ");
-  //Serial.println(dataParams.h);
-  //dataParams.h = (byte) analogRead(0);//10 bit precision
+  dataParams.h = analogRead(0);//10 bit precision
   digitalWrite(POWERPIN, LOW);//turn sensor off
+  
+  //Measure temp and humidity
+  digitalWrite(TEMPPWRPIN, HIGH);
+  dht.begin();
+  delay(1000);
+  dataParams.hum = dht.readHumidity();
+  dataParams.temp = dht.readTemperature();
+  digitalWrite(TEMPPWRPIN, LOW);
 /* jeg vil med
   shuntvoltage = ina219.getShuntVoltage_mV();
   busvoltage = ina219.getBusVoltage_V();
@@ -280,51 +263,51 @@ void uploadSensorReading(){
   for(int i=0; i<measCount; i++){
       EEPROM_readAnything(i*sizeof(measurementSet),dataParams);
       //Serial.println("Fethed this from EEPROM");
-      //Serial.print("moist: ");
-      //Serial.println(dataParams.moist);
-      wdt_reset();
-      graph.plot(dataParams.time, dataParams.moist, tokens[0]);//change names
-      graph.plot(dataParams.time, dataParams.h, tokens[1]);//change names
+      //print_measurementSet();
+      graph.plot(dataParams.time, dataParams.h, tokens[0]);//change names
+      graph.plot(dataParams.time, dataParams.hum, tokens[1]);//change names
       graph.plot(dataParams.time, dataParams.temp, tokens[2]);//change names
+      
+      
       //graph.plot(dataParams.time, dataParams.current_mA, tokens[1]);
       //graph.plot(dataParams.time, dataParams.loadvoltage, tokens[2]);
       // Note that if you're sending a lot of data you
       // might need to tweak the delay here so the CC3000 has
       // time to finish sending all the data before shutdown.
-      wdt_reset();
       delay(400);
-      wdt_reset();
   }
   measCount = 0;
 
   // Close the connection to the server.
   graph.closeStream();
-  wdt_reset();
 }
 
 void setup() {
-  Serial.println("Starting program");
-  delay(2000);
-  wdt_enable(WDTO_8S);
-  wdt_reset();
-  //wdt_disable();
+  wdt_disable();
   // Open serial communications and wait for port to open:
   Serial.begin(115200);
+  delay(500);
+  Serial.println("Starting up");
 
-  ///pinMode(INPIN, INPUT);      // sets the digital pin  as input
+  pinMode(INPIN, INPUT);      // sets the digital pin  as input
   pinMode(POWERPIN, OUTPUT);
   digitalWrite(POWERPIN, LOW);
   pinMode(WIFIPWRPIN, OUTPUT);
-  //digitalWrite(WIFIPWRPIN, HIGH);
-  pinMode(TEMPINPIN, INPUT);      // sets the digital pin  as input
-  pinMode(TEMPPWRPIN, OUTPUT);
+  digitalWrite(WIFIPWRPIN, HIGH);
+  
+ 
+  wdt_enable(WDTO_8S);
   //currentsensor
   //float shuntvoltage = 0;
   //float busvoltage = 0;
   //float current_mA = 0;
   //float loadvoltage = 0;
   //app_sleep_init();
-  wifi_connect();  
+  wdt_reset();
+  
+  if(!wifi_connect()){
+    asm volatile ("  jmp 0");
+  }
   graph.log_level = 0;
   //graph.fileopt="overwrite"; // See the "Usage" section in https://github.com/plotly/arduino-api for details
   graph.fileopt = "extend"; // Remove this if you want the graph to be overwritten
@@ -333,33 +316,39 @@ void setup() {
   graph.convertTimestamp = true; // tell plotly that you're stamping your data with a millisecond counter and that you want plotly to convert it into a date-formatted graph
   bool success;
 //  delay(65000);
+ wdt_reset();
   success = graph.init();
 
   if(!success){
-    Serial.println(F("No succes in init"));
-    Serial.flush();
-    asm volatile ("  jmp 0");
-    //while(true);
+    Serial.println(F("No succes in init. Restarting"));
+    //wdt_enable(WDTO_8S);
+    while(true);
   }
-  graph.openStream();
+  //graph.openStream();//kan slettes (?)
+  //wdt_reset();
+  //delay(1000);
+  //wdt_reset();
+  graph.closeStream();//kan slettes (?)
+  wdt_reset();
   delay(1000);
-  graph.closeStream();
-  delay(1000);
-  Serial.println(F("Stream closed. Trying wlan_stop in setup"));
+  // Serial.println(F("Stream closed. Trying wlan_stop in setup"));
   wlan_stop();
   digitalWrite(WIFIPWRPIN, LOW);
  //initialize sleep parameters
+  wdt_reset();
+  wdt_disable();
   app_sleep_init();
+ 
 }
 
 
 void loop() {
-  Serial.println(F("inside loop()"));
-  wdt_enable(WDTO_8S);// Vi starter med at sætte den til reset mode.
-  wdt_reset();
+  //Serial.println(F("inside loop()"));
+  
   //sleep();
     //Serial.println(F("inside watchdogActivated"));
-    delay(100);
+    //delay(100);
+    wdt_enable(WDTO_8S);
     //watchdogActivated = false;
     // Increase the count of sleep iterations and take a sensor
     // reading once the max number of iterations has been hit.
@@ -368,13 +357,13 @@ void loop() {
     Serial.println(sleepIterations);
     if (sleepIterations >= MAX_SLEEP_ITERATIONS) {
       Serial.println(F("sleepIteration above MAX_SLEEP"));
-      Serial.flush();
+      //Serial.flush();
+      delay(10);
 
       // Reset the number of sleep iterations.
       sleepIterations = 0;
       // Log the sensor data (waking the CC3000, etc. as needed)
       //wdt_enable(WDTO_8S); Skal denne med?
-      wdt_reset();
       logSensorReading();
       //Serial.println(F("after logSensorReading"));
       Serial.flush();
@@ -382,19 +371,19 @@ void loop() {
     if(measCount >= MEASUREMENTS_BEFORE_UPLOAD)
     {
       Serial.println(F("MeasCount above limit"));
-      wdt_reset();
       //wdt_enable(WDTO_8S);
-      //digitalWrite(WIFIPWRPIN, HIGH);//turn on power to the CC3000
-      //delay(500);
-      //wlan_start(0);
-      //wdt_reset();
+      digitalWrite(WIFIPWRPIN, HIGH);//turn on power to the CC3000
+      delay(500);
+      wlan_start(0);
+      wdt_reset();
       //wdt_disable();
       //configure_wdt();
-      //delay(500);
+      delay(500);
       // Log the sensor data (waking the CC3000, etc. as needed)
       if (wifi_connect()) {
         //Serial.println(F("in Loop: wifi_connected. Trying uploadSensorReading"));
-        //Serial.flush();
+        Serial.flush();
+        wdt_reset();
         uploadSensorReading();
         //Serial.println(F("after uploadSensorReading"));
         //Serial.flush();
@@ -402,19 +391,19 @@ void loop() {
         asm volatile ("  jmp 0");
       }
       //wdt_enable(WDTO_8S);
+      //wdt_enable(WDTO_8S);
       shutdownWiFi();
       delay(400);
-      //digitalWrite(WIFIPWRPIN, LOW);//turn off power to the CC3000
-      //Serial.print("Efter wifipin low");
+      digitalWrite(WIFIPWRPIN, LOW);//turn off power to the CC3000
+      Serial.print("Efter wifipin low");
     }
 
   delay(100);
-
-  // Go to sleep!
-   wdt_reset();
-   // wdt_disable();
+  wdt_reset();
+  wdt_disable();
   app_sleep_init();//needed to switch back to interrupt mode
-  delay(200);
+  //Serial.println("About 2 sleep");
+  //delay(200);
   
   sleep();
 }
