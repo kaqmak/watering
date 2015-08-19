@@ -141,7 +141,7 @@ boolean wifi_connect(){
     return false;
     //Serial.println(F("Starting watchdog"));    
     //wdt_enable(WDTO_8S);
-    //while(1);
+    while(1);
   }
   Serial.println(F("Initialized"));
   wdt_reset();
@@ -150,14 +150,14 @@ boolean wifi_connect(){
   // listSSIDResults();
   //wdt_enable(WDTO_8S);
   //wdt_reset();
-  if (!graph.cc3000.connectToAP(WLAN_SSID, WLAN_PASS, WLAN_SECURITY)) {
+  if (!graph.cc3000.connectToAP(WLAN_SSID, WLAN_PASS, WLAN_SECURITY,40)) {//pPer 10 Aug inserted 40 attempts
     Serial.println(F("Failed connecting to WLAN!"));
     //Serial.println(F("Starting watchdog"));
     //wdt_reset();
     //wdt_disable();
     return false;
    // wdt_enable(WDTO_8S); 
-    //while(1);
+    while(1);
   }
   wdt_reset();
   Serial.println(F("... Connected!"));
@@ -170,7 +170,7 @@ boolean wifi_connect(){
     wdt_reset();
     if (attempts > 20) {
       Serial.println(F("no DHCP"));
-      wdt_disable();
+      //wdt_disable(); // Per 10 Aug
       return false;
     }
     attempts += 1;
@@ -275,6 +275,7 @@ void uploadSensorReading(){
       // might need to tweak the delay here so the CC3000 has
       // time to finish sending all the data before shutdown.
       delay(400);
+      wdt_reset();//Per 10 Aug
   }
   measCount = 0;
 
@@ -385,6 +386,7 @@ void loop() {
         Serial.flush();
         wdt_reset();
         uploadSensorReading();
+        wdt_reset();
         //Serial.println(F("after uploadSensorReading"));
         //Serial.flush();
       }else{
@@ -393,6 +395,7 @@ void loop() {
       //wdt_enable(WDTO_8S);
       //wdt_enable(WDTO_8S);
       shutdownWiFi();
+      wdt_reset();
       delay(400);
       digitalWrite(WIFIPWRPIN, LOW);//turn off power to the CC3000
       Serial.print("Efter wifipin low");
